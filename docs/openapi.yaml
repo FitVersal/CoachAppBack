@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: CoachAppBack API
   version: 1.0.0
-  description: API documentation for authentication, onboarding, profiles, and avatar upload.
+  description: API documentation for the current CoachAppBack backend, including authentication, onboarding, profiles, coach discovery, sessions, chat, and workout programs.
 servers:
   - url: http://localhost:8080
 paths:
@@ -353,6 +353,378 @@ paths:
           $ref: "#/components/responses/ErrorResponse"
         "404":
           $ref: "#/components/responses/ErrorResponse"
+  /api/v1/programs:
+    post:
+      summary: Upload a workout program for a user
+      description: Coach-only endpoint. Uploads the file to configured storage and creates a workout program record tied to a session.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - user_id
+                - session_id
+                - title
+                - file
+              properties:
+                user_id:
+                  type: integer
+                  format: int64
+                session_id:
+                  type: integer
+                  format: int64
+                title:
+                  type: string
+                description:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Workout program created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutProgramResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ErrorResponse"
+    get:
+      summary: List workout programs visible to the current account
+      description: Users receive programs assigned to them. Coaches receive programs they created.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Workout programs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutProgramListResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/programs/{id}:
+    get:
+      summary: Get workout program details
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Workout program details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutProgramResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/programs/{id}/download:
+    get:
+      summary: Get a signed workout program download URL
+      description: Returns a signed storage URL that expires after one hour.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Signed download URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutProgramDownloadResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/sessions/book:
+    post:
+      summary: Book a session with a coach
+      description: User-only endpoint. Creates a pending booking and a placeholder payment record.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookSessionRequest"
+      responses:
+        "201":
+          description: Session booked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/sessions:
+    get:
+      summary: List sessions for the current account
+      description: Users see sessions they booked. Coaches see sessions assigned to them.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+          description: Filters by the persisted booking status.
+        - in: query
+          name: timeframe
+          schema:
+            type: string
+            enum: [upcoming, past]
+      responses:
+        "200":
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionListResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/sessions/{id}:
+    get:
+      summary: Get session details
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/sessions/{id}/status:
+    put:
+      summary: Update a session status
+      description: Users can cancel their own future sessions. Coaches can confirm, complete, or cancel sessions when allowed by business rules.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSessionStatusRequest"
+      responses:
+        "200":
+          description: Session updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/sessions/{id}/pay:
+    post:
+      summary: Pay for a pending session
+      description: User-only endpoint. Marks the payment as paid and confirms the session if the coach is still available.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Session paid and confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/conversations:
+    get:
+      summary: List conversations for the current account
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Conversation summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationListResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+    post:
+      summary: Create or get a conversation with a coach
+      description: User-only endpoint. Reuses the existing conversation if one already exists for the same coach.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConversationRequest"
+      responses:
+        "201":
+          description: Conversation created or fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/conversations/{id}/messages:
+    get:
+      summary: List messages for a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Conversation messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageListResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/ws:
+    get:
+      summary: Upgrade to the chat WebSocket
+      description: WebSocket endpoint for real-time chat. Supply a JWT using the `token` query parameter or a Bearer token in the `Authorization` header during the upgrade request.
+      parameters:
+        - in: query
+          name: token
+          schema:
+            type: string
+          description: Optional JWT token used during the WebSocket upgrade.
+      responses:
+        "101":
+          description: WebSocket upgrade accepted
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "426":
+          $ref: "#/components/responses/ErrorResponse"
 components:
   securitySchemes:
     bearerAuth:
@@ -585,6 +957,94 @@ components:
       properties:
         coach:
           $ref: "#/components/schemas/CoachDetail"
+    WorkoutProgramResponse:
+      type: object
+      properties:
+        program:
+          $ref: "#/components/schemas/WorkoutProgram"
+    WorkoutProgramListResponse:
+      type: object
+      properties:
+        programs:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutProgram"
+    WorkoutProgramDownloadResponse:
+      type: object
+      properties:
+        download_url:
+          type: string
+          format: uri
+        expires_in_seconds:
+          type: integer
+          example: 3600
+    BookSessionRequest:
+      type: object
+      required:
+        - coach_id
+        - scheduled_at
+        - duration_minutes
+      properties:
+        coach_id:
+          type: integer
+          format: int64
+        scheduled_at:
+          type: string
+          format: date-time
+        duration_minutes:
+          type: integer
+          minimum: 1
+        notes:
+          type: string
+    UpdateSessionStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          description: Accepts aliases such as confirm, confirmed, complete, completed, cancel, cancelled, and canceled.
+    SessionResponse:
+      type: object
+      properties:
+        session:
+          $ref: "#/components/schemas/SessionDetail"
+    SessionListResponse:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionDetail"
+    CreateConversationRequest:
+      type: object
+      required:
+        - coach_id
+      properties:
+        coach_id:
+          type: integer
+          format: int64
+    ConversationResponse:
+      type: object
+      properties:
+        conversation:
+          $ref: "#/components/schemas/Conversation"
+    ConversationListResponse:
+      type: object
+      properties:
+        conversations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationSummary"
+    MessageListResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
     PaginationMeta:
       type: object
       properties:
@@ -640,6 +1100,136 @@ components:
                 type: string
             onboarding_complete:
               type: boolean
+    WorkoutProgram:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        coach_id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        session_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    Session:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        coach_id:
+          type: integer
+          format: int64
+        scheduled_at:
+          type: string
+          format: date-time
+        duration_minutes:
+          type: integer
+        status:
+          type: string
+          description: Persisted booking status.
+          example: pending
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        session_id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        coach_id:
+          type: integer
+          format: int64
+        amount:
+          type: number
+          format: float
+        status:
+          type: string
+          example: placeholder
+        created_at:
+          type: string
+          format: date-time
+    SessionDetail:
+      allOf:
+        - $ref: "#/components/schemas/Session"
+        - type: object
+          properties:
+            payment:
+              $ref: "#/components/schemas/Payment"
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        coach_id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        conversation_id:
+          type: integer
+          format: int64
+        sender_id:
+          type: integer
+          format: int64
+        content:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    ConversationSummary:
+      allOf:
+        - $ref: "#/components/schemas/Conversation"
+        - type: object
+          properties:
+            last_message:
+              $ref: "#/components/schemas/ChatMessage"
+            unread_count:
+              type: integer
     UserProfile:
       type: object
       properties:

@@ -18,6 +18,7 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	coachProfileRepo := repository.NewCoachProfileRepository(db)
 	sessionRepo := repository.NewSessionRepository(db)
 	paymentRepo := repository.NewPaymentRepository(db)
+	programRepo := repository.NewWorkoutProgramRepository(db)
 	conversationRepo := repository.NewConversationRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
 	var storageService services.StorageService
@@ -39,6 +40,8 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	coachDiscoveryHandler := handlers.NewCoachDiscoveryHandler(coachProfileRepo, userProfileRepo, matchmakingService)
 	sessionService := services.NewSessionService(db, sessionRepo, paymentRepo, userRepo, coachProfileRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionService)
+	programService := services.NewProgramService(db, programRepo, sessionRepo, userRepo, storageService)
+	programHandler := handlers.NewProgramHandler(programService)
 	chatHub := chatws.NewHub()
 	go chatHub.Run()
 	chatService := services.NewChatService(db, conversationRepo, messageRepo, userRepo)
@@ -74,6 +77,12 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	sessions.Get("/:id", sessionHandler.GetSession)
 	sessions.Put("/:id/status", sessionHandler.UpdateStatus)
 	sessions.Post("/:id/pay", sessionHandler.PayForSession)
+
+	programs := authProtected.Group("/programs")
+	programs.Post("", programHandler.CreateProgram)
+	programs.Get("", programHandler.ListPrograms)
+	programs.Get("/:id", programHandler.GetProgram)
+	programs.Get("/:id/download", programHandler.DownloadProgram)
 
 	conversations := authProtected.Group("/conversations")
 	conversations.Get("", chatHandler.ListConversations)
