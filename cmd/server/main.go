@@ -40,7 +40,9 @@ func main() {
 			"status": "ok",
 		})
 	})
-	routes.RegisterRoutes(app, cfg, database.DB)
+	if err := routes.RegisterRoutes(app, cfg, database.DB); err != nil {
+		log.Fatalf("Failed to register routes: %v", err)
+	}
 
 	// 4. Start Server
 	log.Printf("Server starting on port %s", cfg.Port)

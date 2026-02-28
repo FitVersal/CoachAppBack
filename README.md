@@ -12,6 +12,13 @@ DB_URL=postgres://postgres:postgres@localhost:5432/coachapp?sslmode=disable
 JWT_SECRET=change-me
 ```
 
+Optional:
+
+```env
+APP_ENV=development
+ENABLE_API_DOCS=true
+```
+
 Optional for avatar upload:
 
 ```env
@@ -44,7 +51,17 @@ go run ./cmd/migrate down
 
 ## API Docs
 
-OpenAPI spec: [docs/openapi.yaml](docs/openapi.yaml)
+Docs are only exposed when `APP_ENV=development` and `ENABLE_API_DOCS=true`.
+
+OpenAPI web docs index: `GET /docs`
+
+Swagger UI: `GET /docs/swagger`
+
+ReDoc: `GET /docs/redoc`
+
+Scalar: `GET /docs/scalar`
+
+Raw OpenAPI spec: [docs/openapi.yaml](docs/openapi.yaml)
 
 Main profile/onboarding endpoints:
 

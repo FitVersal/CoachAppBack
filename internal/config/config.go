@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -15,6 +16,8 @@ type Config struct {
 	SupabaseURL        string
 	SupabaseBucket     string
 	SupabaseServiceKey string
+	AppEnv             string
+	EnableDocs         bool
 }
 
 func LoadConfig() (*Config, error) {
@@ -34,6 +37,8 @@ func LoadConfig() (*Config, error) {
 		SupabaseURL:        getEnv("SUPABASE_URL", ""),
 		SupabaseBucket:     getEnv("SUPABASE_BUCKET", ""),
 		SupabaseServiceKey: getEnv("SUPABASE_SERVICE_KEY", ""),
+		AppEnv:             normalizeEnv(getEnv("APP_ENV", "production")),
+		EnableDocs:         getEnvBool("ENABLE_API_DOCS", false),
 	}, nil
 }
 
@@ -42,4 +47,39 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return fallback
+	}
+
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return fallback
+	}
+}
+
+func normalizeEnv(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "dev", "develop", "development", "local":
+		return "development"
+	case "prod", "production":
+		return "production"
+	case "stage", "staging":
+		return "staging"
+	case "test", "testing":
+		return "test"
+	default:
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+}
+
+func (c *Config) DocsEnabled() bool {
+	return c != nil && c.EnableDocs && c.AppEnv == "development"
 }

@@ -12,7 +12,11 @@ import (
 	chatws "github.com/saeid-a/CoachAppBack/internal/websocket"
 )
 
-func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
+func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) error {
+	if err := registerDocsRoutes(app, cfg); err != nil {
+		return err
+	}
+
 	userRepo := repository.NewUserRepository(db)
 	userProfileRepo := repository.NewUserProfileRepository(db)
 	coachProfileRepo := repository.NewCoachProfileRepository(db)
@@ -91,4 +95,6 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 
 	api.Use("/v1/ws", chatHandler.WebSocketAuth)
 	api.Get("/v1/ws", websocket.New(chatHandler.HandleWebSocket))
+
+	return nil
 }
