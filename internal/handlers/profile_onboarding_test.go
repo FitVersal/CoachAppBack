@@ -39,6 +39,7 @@ func (s *stubUserProfileRepo) UpdateOnboarding(_ context.Context, _ int64, req r
 	s.profile.WeightKG = &req.WeightKG
 	s.profile.FitnessLevel = &req.FitnessLevel
 	s.profile.Goals = &req.Goals
+	s.profile.MaxHourlyRate = req.MaxHourlyRate
 	s.profile.MedicalConditions = &req.MedicalConditions
 	s.profile.OnboardingComplete = true
 	return s.profile, nil
@@ -51,6 +52,9 @@ func (s *stubUserProfileRepo) UpdatePartial(_ context.Context, _ int64, req repo
 	}
 	if req.AvatarURL != nil {
 		s.profile.AvatarURL = req.AvatarURL
+	}
+	if req.MaxHourlyRate != nil {
+		s.profile.MaxHourlyRate = req.MaxHourlyRate
 	}
 	if req.MedicalConditions != nil {
 		s.profile.MedicalConditions = req.MedicalConditions
@@ -156,6 +160,38 @@ func TestUserOnboardingUsesMedicalConditionsContract(t *testing.T) {
 	}
 	if got := userRepo.lastOnboardingInput.MedicalConditions; got != "asthma" {
 		t.Fatalf("expected medical_conditions to be forwarded, got %q", got)
+	}
+}
+
+func TestUserProfileUpdateUsesMaxHourlyRatePreference(t *testing.T) {
+	userRepo := &stubUserProfileRepo{profile: &models.UserProfile{}}
+	coachRepo := &stubCoachProfileRepo{}
+	profileService := services.NewProfileService(userRepo, coachRepo)
+	handler := NewProfileHandler(profileService, userRepo, coachRepo, nil)
+
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("role", "user")
+		c.Locals("user_id", "42")
+		return c.Next()
+	})
+	app.Put("/api/v1/users/profile", handler.UpdateUserProfile)
+
+	body := `{"max_hourly_rate":65}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/users/profile", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	if userRepo.lastUpdatePartial.MaxHourlyRate == nil || *userRepo.lastUpdatePartial.MaxHourlyRate != 65 {
+		t.Fatalf("expected max_hourly_rate 65, got %+v", userRepo.lastUpdatePartial.MaxHourlyRate)
 	}
 }
 

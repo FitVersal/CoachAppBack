@@ -56,6 +56,9 @@ Main profile/onboarding endpoints:
 - `GET /api/v1/coaches/profile`
 - `PUT /api/v1/coaches/profile`
 - `POST /api/v1/coaches/profile/avatar`
+- `GET /api/v1/coaches`
+- `GET /api/v1/coaches/recommended`
+- `GET /api/v1/coaches/:id`
 
 ## Example Requests
 
@@ -85,6 +88,7 @@ curl -X POST http://localhost:8080/api/v1/users/onboarding \
     "weight_kg": 78,
     "fitness_level": "beginner",
     "goals": ["weight_loss", "mobility"],
+    "max_hourly_rate": 60,
     "medical_conditions": "asthma"
   }'
 ```
@@ -98,8 +102,30 @@ curl -X PUT http://localhost:8080/api/v1/users/profile \
   -d '{
     "weight_kg": 75,
     "goals": ["weight_loss", "strength"],
+    "max_hourly_rate": 70,
     "medical_conditions": "asthma"
   }'
+```
+
+Discover coaches:
+
+```bash
+curl "http://localhost:8080/api/v1/coaches?specialization=weight_loss&min_rating=4&max_price=80&page=1&limit=10" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Get recommended coaches:
+
+```bash
+curl "http://localhost:8080/api/v1/coaches/recommended?limit=5" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Get coach detail:
+
+```bash
+curl http://localhost:8080/api/v1/coaches/42 \
+  -H "Authorization: Bearer <TOKEN>"
 ```
 
 Upload a user avatar:
@@ -152,3 +178,5 @@ curl -X POST http://localhost:8080/api/v1/coaches/profile/avatar \
 - Avatar uploads accept `.jpg`, `.jpeg`, `.png`, and `.webp` files up to 5 MB.
 - `000002_rename_profile_columns` migrates existing databases from `injuries` to `medical_conditions` and from `credentials` to `certifications[]`.
 - The down migration converts coach certifications back to a comma-separated text field because the previous schema stored only a single text value.
+- `000003_add_discovery_support` adds persisted user budget preference, coach reviews, and coach availability slots used by discovery endpoints.
+- `000004_sync_coach_rating_from_reviews` backfills `coach_profiles.rating` from `coach_reviews` and keeps it synchronized with a database trigger.

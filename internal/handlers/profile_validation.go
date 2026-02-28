@@ -44,6 +44,9 @@ func validateUserOnboardingRequest(req userOnboardingRequest) string {
 			return "goals must not contain empty values"
 		}
 	}
+	if req.MaxHourlyRate != nil && *req.MaxHourlyRate < 0 {
+		return "max_hourly_rate must be 0 or greater"
+	}
 	return ""
 }
 
@@ -108,6 +111,9 @@ func validateUserProfileUpdateRequest(req updateUserProfileRequest) string {
 				return "goals must not contain empty values"
 			}
 		}
+	}
+	if req.MaxHourlyRate != nil && *req.MaxHourlyRate < 0 {
+		return "max_hourly_rate must be 0 or greater"
 	}
 	if req.MedicalConditions != nil && strings.TrimSpace(*req.MedicalConditions) == "" {
 		return "medical_conditions must not be empty"

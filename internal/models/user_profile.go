@@ -13,6 +13,7 @@ type UserProfile struct {
 	WeightKG           *float64  `json:"weight_kg"`
 	FitnessLevel       *string   `json:"fitness_level"`
 	Goals              *[]string `json:"goals"`
+	MaxHourlyRate      *float64  `json:"max_hourly_rate"`
 	MedicalConditions  *string   `json:"medical_conditions"`
 	OnboardingComplete bool      `json:"onboarding_complete"`
 	CreatedAt          time.Time `json:"created_at"`

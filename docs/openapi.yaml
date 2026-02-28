@@ -268,6 +268,91 @@ paths:
           $ref: "#/components/responses/ErrorResponse"
         "503":
           $ref: "#/components/responses/ErrorResponse"
+  /api/v1/coaches:
+    get:
+      summary: List coaches with filters
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: specialization
+          schema:
+            type: string
+        - in: query
+          name: min_rating
+          schema:
+            type: number
+            format: float
+        - in: query
+          name: max_price
+          schema:
+            type: number
+            format: float
+        - in: query
+          name: experience
+          schema:
+            type: integer
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated coach list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachListPageResponse"
+  /api/v1/coaches/recommended:
+    get:
+      summary: Get recommended coaches for the current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recommended coaches
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendedCoachResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/coaches/{id}:
+    get:
+      summary: Get a public coach detail profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Coach detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachDetailEnvelope"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
 components:
   securitySchemes:
     bearerAuth:
@@ -374,6 +459,9 @@ components:
           minItems: 1
           items:
             type: string
+        max_hourly_rate:
+          type: number
+          format: float
         medical_conditions:
           type: string
     UserProfileUpdateRequest:
@@ -399,6 +487,9 @@ components:
           type: array
           items:
             type: string
+        max_hourly_rate:
+          type: number
+          format: float
         medical_conditions:
           type: string
     CoachOnboardingRequest:
@@ -473,6 +564,82 @@ components:
           oneOf:
             - $ref: "#/components/schemas/UserProfile"
             - $ref: "#/components/schemas/CoachProfile"
+    CoachListPageResponse:
+      type: object
+      properties:
+        coaches:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoachListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+    RecommendedCoachResponse:
+      type: object
+      properties:
+        coaches:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoachListItem"
+    CoachDetailEnvelope:
+      type: object
+      properties:
+        coach:
+          $ref: "#/components/schemas/CoachDetail"
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+    CoachListItem:
+      type: object
+      properties:
+        id:
+          type: string
+        full_name:
+          type: string
+        avatar_url:
+          type: string
+        specializations:
+          type: array
+          items:
+            type: string
+        experience_years:
+          type: integer
+        hourly_rate:
+          type: number
+          format: float
+        rating:
+          type: number
+          format: float
+        total_reviews:
+          type: integer
+        match_score:
+          type: integer
+    CoachDetail:
+      allOf:
+        - $ref: "#/components/schemas/CoachListItem"
+        - type: object
+          properties:
+            bio:
+              type: string
+            certifications:
+              type: array
+              items:
+                type: string
+            is_verified:
+              type: boolean
+            available_slots_preview:
+              type: array
+              items:
+                type: string
+            onboarding_complete:
+              type: boolean
     UserProfile:
       type: object
       properties:
@@ -510,6 +677,10 @@ components:
           nullable: true
           items:
             type: string
+        max_hourly_rate:
+          type: number
+          format: float
+          nullable: true
         medical_conditions:
           type: string
           nullable: true
@@ -560,6 +731,8 @@ components:
           type: number
           format: float
           nullable: true
+        total_reviews:
+          type: integer
         total_clients:
           type: integer
           nullable: true

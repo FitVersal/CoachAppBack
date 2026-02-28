@@ -29,6 +29,8 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	onboardingHandler := handlers.NewOnboardingHandler(userProfileRepo, coachProfileRepo)
 	profileService := services.NewProfileService(userProfileRepo, coachProfileRepo)
 	profileHandler := handlers.NewProfileHandler(profileService, userProfileRepo, coachProfileRepo, storageService)
+	matchmakingService := services.NewMatchmakingService(coachProfileRepo)
+	coachDiscoveryHandler := handlers.NewCoachDiscoveryHandler(coachProfileRepo, userProfileRepo, matchmakingService)
 
 	api := app.Group("/api")
 
@@ -46,8 +48,11 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	users.Post("/profile/avatar", profileHandler.UploadUserAvatar)
 
 	coaches := authProtected.Group("/coaches")
+	coaches.Get("", coachDiscoveryHandler.ListCoaches)
 	coaches.Post("/onboarding", onboardingHandler.CoachOnboarding)
 	coaches.Get("/profile", profileHandler.GetCoachProfile)
 	coaches.Put("/profile", profileHandler.UpdateCoachProfile)
 	coaches.Post("/profile/avatar", profileHandler.UploadCoachAvatar)
+	coaches.Get("/recommended", coachDiscoveryHandler.GetRecommendedCoaches)
+	coaches.Get("/:id", coachDiscoveryHandler.GetCoachDetail)
 }

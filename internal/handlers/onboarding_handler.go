@@ -37,6 +37,7 @@ type userOnboardingRequest struct {
 	WeightKG          float64  `json:"weight_kg"`
 	FitnessLevel      string   `json:"fitness_level"`
 	Goals             []string `json:"goals"`
+	MaxHourlyRate     *float64 `json:"max_hourly_rate"`
 	MedicalConditions string   `json:"medical_conditions"`
 }
 
@@ -76,6 +77,7 @@ func (h *OnboardingHandler) UserOnboarding(c *fiber.Ctx) error {
 		WeightKG:          req.WeightKG,
 		FitnessLevel:      req.FitnessLevel,
 		Goals:             req.Goals,
+		MaxHourlyRate:     req.MaxHourlyRate,
 		MedicalConditions: req.MedicalConditions,
 	})
 	if err != nil {

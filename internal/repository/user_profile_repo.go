@@ -23,7 +23,7 @@ func (r *UserProfileRepository) CreateEmpty(ctx context.Context, userID int64) e
 func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID int64) (*models.UserProfile, error) {
 	query := `
 		SELECT id, user_id, full_name, avatar_url, age, gender, height_cm, weight_kg,
-			   fitness_level, goals, medical_conditions, onboarding_complete, created_at, updated_at
+			   fitness_level, goals, max_hourly_rate, medical_conditions, onboarding_complete, created_at, updated_at
 		FROM user_profiles
 		WHERE user_id = $1
 	`
@@ -39,6 +39,7 @@ func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID int64) (
 		&profile.WeightKG,
 		&profile.FitnessLevel,
 		&profile.Goals,
+		&profile.MaxHourlyRate,
 		&profile.MedicalConditions,
 		&profile.OnboardingComplete,
 		&profile.CreatedAt,
@@ -60,12 +61,13 @@ func (r *UserProfileRepository) UpdateOnboarding(ctx context.Context, userID int
 			weight_kg = $5,
 			fitness_level = $6,
 			goals = $7,
-			medical_conditions = $8,
+			max_hourly_rate = $8,
+			medical_conditions = $9,
 			onboarding_complete = TRUE,
 			updated_at = NOW()
-		WHERE user_id = $9
+		WHERE user_id = $10
 		RETURNING id, user_id, full_name, avatar_url, age, gender, height_cm, weight_kg,
-				  fitness_level, goals, medical_conditions, onboarding_complete, created_at, updated_at
+				  fitness_level, goals, max_hourly_rate, medical_conditions, onboarding_complete, created_at, updated_at
 	`
 	var profile models.UserProfile
 	err := r.db.QueryRow(ctx, query,
@@ -76,6 +78,7 @@ func (r *UserProfileRepository) UpdateOnboarding(ctx context.Context, userID int
 		req.WeightKG,
 		req.FitnessLevel,
 		req.Goals,
+		req.MaxHourlyRate,
 		req.MedicalConditions,
 		userID,
 	).Scan(
@@ -89,6 +92,7 @@ func (r *UserProfileRepository) UpdateOnboarding(ctx context.Context, userID int
 		&profile.WeightKG,
 		&profile.FitnessLevel,
 		&profile.Goals,
+		&profile.MaxHourlyRate,
 		&profile.MedicalConditions,
 		&profile.OnboardingComplete,
 		&profile.CreatedAt,
@@ -111,11 +115,12 @@ func (r *UserProfileRepository) UpdatePartial(ctx context.Context, userID int64,
 			weight_kg = COALESCE($6, weight_kg),
 			fitness_level = COALESCE($7, fitness_level),
 			goals = COALESCE($8, goals),
-			medical_conditions = COALESCE($9, medical_conditions),
+			max_hourly_rate = COALESCE($9, max_hourly_rate),
+			medical_conditions = COALESCE($10, medical_conditions),
 			updated_at = NOW()
-		WHERE user_id = $10
+		WHERE user_id = $11
 		RETURNING id, user_id, full_name, avatar_url, age, gender, height_cm, weight_kg,
-				  fitness_level, goals, medical_conditions, onboarding_complete, created_at, updated_at
+				  fitness_level, goals, max_hourly_rate, medical_conditions, onboarding_complete, created_at, updated_at
 	`
 	var profile models.UserProfile
 	err := r.db.QueryRow(ctx, query,
@@ -127,6 +132,7 @@ func (r *UserProfileRepository) UpdatePartial(ctx context.Context, userID int64,
 		req.WeightKG,
 		req.FitnessLevel,
 		req.Goals,
+		req.MaxHourlyRate,
 		req.MedicalConditions,
 		userID,
 	).Scan(
@@ -140,6 +146,7 @@ func (r *UserProfileRepository) UpdatePartial(ctx context.Context, userID int64,
 		&profile.WeightKG,
 		&profile.FitnessLevel,
 		&profile.Goals,
+		&profile.MaxHourlyRate,
 		&profile.MedicalConditions,
 		&profile.OnboardingComplete,
 		&profile.CreatedAt,
@@ -159,6 +166,7 @@ type UserOnboardingInput struct {
 	WeightKG          float64
 	FitnessLevel      string
 	Goals             []string
+	MaxHourlyRate     *float64
 	MedicalConditions string
 }
 
@@ -171,5 +179,6 @@ type UpdateUserProfileInput struct {
 	WeightKG          *float64
 	FitnessLevel      *string
 	Goals             *[]string
+	MaxHourlyRate     *float64
 	MedicalConditions *string
 }
