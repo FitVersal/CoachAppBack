@@ -14,6 +14,8 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	userRepo := repository.NewUserRepository(db)
 	userProfileRepo := repository.NewUserProfileRepository(db)
 	coachProfileRepo := repository.NewCoachProfileRepository(db)
+	sessionRepo := repository.NewSessionRepository(db)
+	paymentRepo := repository.NewPaymentRepository(db)
 	var storageService services.StorageService
 	if cfg.SupabaseURL != "" && cfg.SupabaseBucket != "" && cfg.SupabaseServiceKey != "" {
 		storageService = services.NewSupabaseStorageService(cfg.SupabaseURL, cfg.SupabaseBucket, cfg.SupabaseServiceKey)
@@ -31,6 +33,8 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	profileHandler := handlers.NewProfileHandler(profileService, userProfileRepo, coachProfileRepo, storageService)
 	matchmakingService := services.NewMatchmakingService(coachProfileRepo)
 	coachDiscoveryHandler := handlers.NewCoachDiscoveryHandler(coachProfileRepo, userProfileRepo, matchmakingService)
+	sessionService := services.NewSessionService(db, sessionRepo, paymentRepo, userRepo, coachProfileRepo)
+	sessionHandler := handlers.NewSessionHandler(sessionService)
 
 	api := app.Group("/api")
 
@@ -55,4 +59,11 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	coaches.Post("/profile/avatar", profileHandler.UploadCoachAvatar)
 	coaches.Get("/recommended", coachDiscoveryHandler.GetRecommendedCoaches)
 	coaches.Get("/:id", coachDiscoveryHandler.GetCoachDetail)
+
+	sessions := authProtected.Group("/sessions")
+	sessions.Post("/book", sessionHandler.BookSession)
+	sessions.Get("", sessionHandler.ListSessions)
+	sessions.Get("/:id", sessionHandler.GetSession)
+	sessions.Put("/:id/status", sessionHandler.UpdateStatus)
+	sessions.Post("/:id/pay", sessionHandler.PayForSession)
 }
