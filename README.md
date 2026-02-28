@@ -59,6 +59,10 @@ Main profile/onboarding endpoints:
 - `GET /api/v1/coaches`
 - `GET /api/v1/coaches/recommended`
 - `GET /api/v1/coaches/:id`
+- `GET /api/v1/conversations`
+- `POST /api/v1/conversations`
+- `GET /api/v1/conversations/:id/messages`
+- `WS /api/v1/ws`
 
 ## Example Requests
 
@@ -173,10 +177,62 @@ curl -X POST http://localhost:8080/api/v1/coaches/profile/avatar \
   -F "avatar=@/path/to/avatar.jpg"
 ```
 
+Create or get a conversation with a coach:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/conversations \
+  -H "Authorization: Bearer <USER_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "coach_id": 42
+  }'
+```
+
+List conversations for the current user:
+
+```bash
+curl http://localhost:8080/api/v1/conversations \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Get paginated messages and mark incoming messages as read:
+
+```bash
+curl "http://localhost:8080/api/v1/conversations/7/messages?page=1&limit=20" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Connect to chat over WebSocket with `wscat`:
+
+```bash
+wscat -c "ws://localhost:8080/api/v1/ws?token=<TOKEN>"
+```
+
+Send a chat message over the websocket connection:
+
+```json
+{"type":"message","conversation_id":"7","content":"Hi coach, can we move tomorrow's session?"}
+```
+
+Expected websocket event shape:
+
+```json
+{
+  "type": "message",
+  "conversation_id": "7",
+  "sender_id": "12",
+  "recipient_id": "42",
+  "content": "Hi coach, can we move tomorrow's session?",
+  "timestamp": "2026-03-01T09:00:00Z"
+}
+```
+
 ## Notes
 
 - Avatar uploads accept `.jpg`, `.jpeg`, `.png`, and `.webp` files up to 5 MB.
+- Chat websocket auth accepts either `?token=<JWT>` or `Authorization: Bearer <JWT>` during upgrade.
 - `000002_rename_profile_columns` migrates existing databases from `injuries` to `medical_conditions` and from `credentials` to `certifications[]`.
 - The down migration converts coach certifications back to a comma-separated text field because the previous schema stored only a single text value.
 - `000003_add_discovery_support` adds persisted user budget preference, coach reviews, and coach availability slots used by discovery endpoints.
 - `000004_sync_coach_rating_from_reviews` backfills `coach_profiles.rating` from `coach_reviews` and keeps it synchronized with a database trigger.
+- `000006_add_chat_indexes` hardens chat foreign keys and adds indexes for conversation lookup and unread-message scans.

@@ -74,15 +74,16 @@ func TestSessionServiceRejectsOverlappingBookings(t *testing.T) {
 	t.Cleanup(func() { cleanupTestUsers(t, ctx, pool, firstUserID, secondUserID, coachID) })
 
 	scheduledAt := time.Date(2030, 4, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := service.BookSession(ctx, firstUserID, BookSessionInput{
+	_, err := service.BookSession(ctx, firstUserID, BookSessionInput{
 		CoachID:         coachID,
 		ScheduledAt:     scheduledAt,
 		DurationMinutes: 60,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("first BookSession: %v", err)
 	}
 
-	_, err := service.BookSession(ctx, secondUserID, BookSessionInput{
+	_, err = service.BookSession(ctx, secondUserID, BookSessionInput{
 		CoachID:         coachID,
 		ScheduledAt:     scheduledAt.Add(30 * time.Minute),
 		DurationMinutes: 45,
@@ -178,7 +179,13 @@ func newIntegrationSessionService(pool *pgxpool.Pool) *SessionService {
 	)
 }
 
-func createTestAccount(t *testing.T, ctx context.Context, pool *pgxpool.Pool, role string, hourlyRate float64) int64 {
+func createTestAccount(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	role string,
+	hourlyRate float64,
+) int64 {
 	t.Helper()
 
 	userRepo := repository.NewUserRepository(pool)

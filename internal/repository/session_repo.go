@@ -139,9 +139,15 @@ func (r *SessionRepository) List(
 
 	switch strings.TrimSpace(filter.Timeframe) {
 	case "upcoming":
-		whereParts = append(whereParts, "(scheduled_at + (duration_min * INTERVAL '1 minute')) > NOW()")
+		whereParts = append(
+			whereParts,
+			"(scheduled_at + (duration_min * INTERVAL '1 minute')) > NOW()",
+		)
 	case "past":
-		whereParts = append(whereParts, "(scheduled_at + (duration_min * INTERVAL '1 minute')) <= NOW()")
+		whereParts = append(
+			whereParts,
+			"(scheduled_at + (duration_min * INTERVAL '1 minute')) <= NOW()",
+		)
 	}
 
 	query := fmt.Sprintf(`
@@ -260,6 +266,31 @@ func (r *SessionRepository) HasConflict(
 	`
 	var hasConflict bool
 	if err := r.db.QueryRow(ctx, query, coachID, requestedTime, durationMinutes).Scan(&hasConflict); err != nil {
+		return false, err
+	}
+	return hasConflict, nil
+}
+
+func (r *SessionRepository) HasConflictExcludingSession(
+	ctx context.Context,
+	coachID int64,
+	requestedTime time.Time,
+	durationMinutes int,
+	excludedSessionID int64,
+) (bool, error) {
+	query := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM bookings
+			WHERE coach_id = $1
+			  AND id <> $4
+			  AND status <> 'cancelled'
+			  AND scheduled_at < ($2::timestamp + ($3::int * INTERVAL '1 minute'))
+			  AND (scheduled_at + (duration_min * INTERVAL '1 minute')) > $2::timestamp
+		)
+	`
+	var hasConflict bool
+	if err := r.db.QueryRow(ctx, query, coachID, requestedTime, durationMinutes, excludedSessionID).Scan(&hasConflict); err != nil {
 		return false, err
 	}
 	return hasConflict, nil

@@ -1,6 +1,7 @@
 package routes
 
 import (
+	websocket "github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/saeid-a/CoachAppBack/internal/config"
@@ -8,6 +9,7 @@ import (
 	"github.com/saeid-a/CoachAppBack/internal/middleware"
 	"github.com/saeid-a/CoachAppBack/internal/repository"
 	"github.com/saeid-a/CoachAppBack/internal/services"
+	chatws "github.com/saeid-a/CoachAppBack/internal/websocket"
 )
 
 func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
@@ -16,6 +18,8 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	coachProfileRepo := repository.NewCoachProfileRepository(db)
 	sessionRepo := repository.NewSessionRepository(db)
 	paymentRepo := repository.NewPaymentRepository(db)
+	conversationRepo := repository.NewConversationRepository(db)
+	messageRepo := repository.NewMessageRepository(db)
 	var storageService services.StorageService
 	if cfg.SupabaseURL != "" && cfg.SupabaseBucket != "" && cfg.SupabaseServiceKey != "" {
 		storageService = services.NewSupabaseStorageService(cfg.SupabaseURL, cfg.SupabaseBucket, cfg.SupabaseServiceKey)
@@ -35,6 +39,10 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	coachDiscoveryHandler := handlers.NewCoachDiscoveryHandler(coachProfileRepo, userProfileRepo, matchmakingService)
 	sessionService := services.NewSessionService(db, sessionRepo, paymentRepo, userRepo, coachProfileRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionService)
+	chatHub := chatws.NewHub()
+	go chatHub.Run()
+	chatService := services.NewChatService(db, conversationRepo, messageRepo, userRepo)
+	chatHandler := handlers.NewChatHandler(chatService, chatHub, cfg.JWTSecret)
 
 	api := app.Group("/api")
 
@@ -66,4 +74,12 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) {
 	sessions.Get("/:id", sessionHandler.GetSession)
 	sessions.Put("/:id/status", sessionHandler.UpdateStatus)
 	sessions.Post("/:id/pay", sessionHandler.PayForSession)
+
+	conversations := authProtected.Group("/conversations")
+	conversations.Get("", chatHandler.ListConversations)
+	conversations.Post("", chatHandler.CreateConversation)
+	conversations.Get("/:id/messages", chatHandler.GetMessages)
+
+	api.Use("/v1/ws", chatHandler.WebSocketAuth)
+	api.Get("/v1/ws", websocket.New(chatHandler.HandleWebSocket))
 }

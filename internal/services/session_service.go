@@ -322,6 +322,19 @@ func (s *SessionService) PayForSession(
 	if !session.ScheduledAt.After(time.Now().UTC()) {
 		return nil, ErrInvalidStateTransition
 	}
+	hasConflict, err := txSessionRepo.HasConflictExcludingSession(
+		ctx,
+		session.CoachID,
+		session.ScheduledAt.UTC(),
+		session.DurationMinutes,
+		session.ID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if hasConflict {
+		return nil, ErrConflict
+	}
 
 	if _, err := txPaymentRepo.UpdateStatusIfCurrent(ctx, payment.ID, "placeholder", "paid"); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -377,7 +390,10 @@ func validateStatusTransition(
 		if session.UserID != actorID || nextStatus != "cancelled" {
 			return ErrForbidden
 		}
-		if session.Status == "completed" || session.Status == "cancelled" {
+		if session.Status != "pending" && session.Status != "confirmed" {
+			return ErrInvalidStateTransition
+		}
+		if !session.ScheduledAt.After(time.Now().UTC()) {
 			return ErrInvalidStateTransition
 		}
 		return nil
@@ -394,7 +410,8 @@ func validateStatusTransition(
 			if session.Status != "confirmed" {
 				return ErrInvalidStateTransition
 			}
-			sessionEnd := session.ScheduledAt.UTC().Add(time.Duration(session.DurationMinutes) * time.Minute)
+			sessionEnd := session.ScheduledAt.UTC().
+				Add(time.Duration(session.DurationMinutes) * time.Minute)
 			if sessionEnd.After(time.Now().UTC()) {
 				return ErrInvalidStateTransition
 			}
