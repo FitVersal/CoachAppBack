@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS workout_programs;
+DROP TABLE IF EXISTS bookings;
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS conversations;
+DROP TABLE IF EXISTS coach_profiles;
+DROP TABLE IF EXISTS user_profiles;
+DROP TABLE IF EXISTS users;

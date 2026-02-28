@@ -1,0 +1,576 @@
+openapi: 3.0.3
+info:
+  title: CoachAppBack API
+  version: 1.0.0
+  description: API documentation for authentication, onboarding, profiles, and avatar upload.
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/auth/register:
+    post:
+      summary: Register a user or coach account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: Registration succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/auth/login:
+    post:
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/auth/me:
+    get:
+      summary: Get authenticated account summary
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/users/onboarding:
+    post:
+      summary: Create or update the current user's onboarding profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserOnboardingRequest"
+      responses:
+        "200":
+          description: User onboarding saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/users/profile:
+    get:
+      summary: Get the current user's profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+    put:
+      summary: Update the current user's profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProfileUpdateRequest"
+      responses:
+        "200":
+          description: User profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/users/profile/avatar:
+    post:
+      summary: Upload the current user's avatar
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: User avatar uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarUploadResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/coaches/onboarding:
+    post:
+      summary: Create or update the current coach's onboarding profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoachOnboardingRequest"
+      responses:
+        "200":
+          description: Coach onboarding saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachProfileResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/coaches/profile:
+    get:
+      summary: Get the current coach's profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Coach profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachProfileResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+    put:
+      summary: Update the current coach's profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoachProfileUpdateRequest"
+      responses:
+        "200":
+          description: Coach profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachProfileResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/coaches/profile/avatar:
+    post:
+      summary: Upload the current coach's avatar
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Coach avatar uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarUploadResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ErrorResponse"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    ErrorResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          type: string
+          enum: [user, coach]
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/AuthUser"
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [user, coach]
+    MeResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+        profile:
+          oneOf:
+            - $ref: "#/components/schemas/UserProfile"
+            - $ref: "#/components/schemas/CoachProfile"
+        onboarding_complete:
+          type: boolean
+    UserOnboardingRequest:
+      type: object
+      required:
+        - full_name
+        - age
+        - gender
+        - height_cm
+        - weight_kg
+        - fitness_level
+        - goals
+      properties:
+        full_name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [male, female, other, prefer_not_to_say]
+        height_cm:
+          type: number
+          format: float
+        weight_kg:
+          type: number
+          format: float
+        fitness_level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        goals:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        medical_conditions:
+          type: string
+    UserProfileUpdateRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [male, female, other, prefer_not_to_say]
+        height_cm:
+          type: number
+          format: float
+        weight_kg:
+          type: number
+          format: float
+        fitness_level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        goals:
+          type: array
+          items:
+            type: string
+        medical_conditions:
+          type: string
+    CoachOnboardingRequest:
+      type: object
+      required:
+        - full_name
+        - bio
+        - specializations
+        - certifications
+        - experience_years
+        - hourly_rate
+      properties:
+        full_name:
+          type: string
+        bio:
+          type: string
+        specializations:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        certifications:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        experience_years:
+          type: integer
+        hourly_rate:
+          type: number
+          format: float
+    CoachProfileUpdateRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        bio:
+          type: string
+        specializations:
+          type: array
+          items:
+            type: string
+        certifications:
+          type: array
+          items:
+            type: string
+        experience_years:
+          type: integer
+        hourly_rate:
+          type: number
+          format: float
+    UserProfileResponse:
+      type: object
+      properties:
+        profile:
+          $ref: "#/components/schemas/UserProfile"
+        onboarding_complete:
+          type: boolean
+    CoachProfileResponse:
+      type: object
+      properties:
+        profile:
+          $ref: "#/components/schemas/CoachProfile"
+        onboarding_complete:
+          type: boolean
+    AvatarUploadResponse:
+      type: object
+      properties:
+        avatar_url:
+          type: string
+        profile:
+          oneOf:
+            - $ref: "#/components/schemas/UserProfile"
+            - $ref: "#/components/schemas/CoachProfile"
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        full_name:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        age:
+          type: integer
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        height_cm:
+          type: number
+          format: float
+          nullable: true
+        weight_kg:
+          type: number
+          format: float
+          nullable: true
+        fitness_level:
+          type: string
+          nullable: true
+        goals:
+          type: array
+          nullable: true
+          items:
+            type: string
+        medical_conditions:
+          type: string
+          nullable: true
+        onboarding_complete:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CoachProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        full_name:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        specializations:
+          type: array
+          nullable: true
+          items:
+            type: string
+        certifications:
+          type: array
+          nullable: true
+          items:
+            type: string
+        experience_years:
+          type: integer
+          nullable: true
+        hourly_rate:
+          type: number
+          format: float
+          nullable: true
+        rating:
+          type: number
+          format: float
+          nullable: true
+        total_clients:
+          type: integer
+          nullable: true
+        is_verified:
+          type: boolean
+          nullable: true
+        onboarding_complete:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
