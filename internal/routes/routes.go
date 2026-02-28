@@ -1,15 +1,25 @@
 package routes
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"net/mail"
+	"strings"
+
 	websocket "github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/saeid-a/CoachAppBack/internal/config"
 	"github.com/saeid-a/CoachAppBack/internal/handlers"
 	"github.com/saeid-a/CoachAppBack/internal/middleware"
+	"github.com/saeid-a/CoachAppBack/internal/models"
 	"github.com/saeid-a/CoachAppBack/internal/repository"
 	"github.com/saeid-a/CoachAppBack/internal/services"
 	chatws "github.com/saeid-a/CoachAppBack/internal/websocket"
+	"github.com/saeid-a/CoachAppBack/pkg/utils"
 )
 
 func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) error {
@@ -27,7 +37,14 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) error 
 	messageRepo := repository.NewMessageRepository(db)
 	var storageService services.StorageService
 	if cfg.SupabaseURL != "" && cfg.SupabaseBucket != "" && cfg.SupabaseServiceKey != "" {
-		storageService = services.NewSupabaseStorageService(cfg.SupabaseURL, cfg.SupabaseBucket, cfg.SupabaseServiceKey)
+		storageService = services.NewSupabaseStorageService(
+			cfg.SupabaseURL,
+			cfg.SupabaseBucket,
+			cfg.SupabaseServiceKey,
+		)
+	}
+	if err := ensureDefaultUsers(cfg, db, userRepo, userProfileRepo, coachProfileRepo); err != nil {
+		return err
 	}
 
 	authHandler := handlers.NewAuthHandler(
@@ -39,12 +56,33 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) error 
 	)
 	onboardingHandler := handlers.NewOnboardingHandler(userProfileRepo, coachProfileRepo)
 	profileService := services.NewProfileService(userProfileRepo, coachProfileRepo)
-	profileHandler := handlers.NewProfileHandler(profileService, userProfileRepo, coachProfileRepo, storageService)
+	profileHandler := handlers.NewProfileHandler(
+		profileService,
+		userProfileRepo,
+		coachProfileRepo,
+		storageService,
+	)
 	matchmakingService := services.NewMatchmakingService(coachProfileRepo)
-	coachDiscoveryHandler := handlers.NewCoachDiscoveryHandler(coachProfileRepo, userProfileRepo, matchmakingService)
-	sessionService := services.NewSessionService(db, sessionRepo, paymentRepo, userRepo, coachProfileRepo)
+	coachDiscoveryHandler := handlers.NewCoachDiscoveryHandler(
+		coachProfileRepo,
+		userProfileRepo,
+		matchmakingService,
+	)
+	sessionService := services.NewSessionService(
+		db,
+		sessionRepo,
+		paymentRepo,
+		userRepo,
+		coachProfileRepo,
+	)
 	sessionHandler := handlers.NewSessionHandler(sessionService)
-	programService := services.NewProgramService(db, programRepo, sessionRepo, userRepo, storageService)
+	programService := services.NewProgramService(
+		db,
+		programRepo,
+		sessionRepo,
+		userRepo,
+		storageService,
+	)
 	programHandler := handlers.NewProgramHandler(programService)
 	chatHub := chatws.NewHub()
 	go chatHub.Run()
@@ -95,6 +133,128 @@ func RegisterRoutes(app *fiber.App, cfg *config.Config, db *pgxpool.Pool) error 
 
 	api.Use("/v1/ws", chatHandler.WebSocketAuth)
 	api.Get("/v1/ws", websocket.New(chatHandler.HandleWebSocket))
+
+	return nil
+}
+
+func ensureDefaultUsers(
+	cfg *config.Config,
+	db *pgxpool.Pool,
+	userRepo *repository.UserRepository,
+	userProfileRepo *repository.UserProfileRepository,
+	coachProfileRepo *repository.CoachProfileRepository,
+) error {
+	if cfg == nil {
+		return nil
+	}
+	userEmail := strings.TrimSpace(cfg.DefaultUserEmail)
+	userPassword := cfg.DefaultUserPassword
+	userRole := strings.ToLower(strings.TrimSpace(cfg.DefaultUserRole))
+	if userRole == "" {
+		userRole = "user"
+	}
+	if userRole != "user" && userRole != "coach" {
+		return fmt.Errorf("DEFAULT_USER_ROLE must be user or coach")
+	}
+	if err := ensureDefaultAccount(
+		db,
+		userRepo,
+		userProfileRepo,
+		coachProfileRepo,
+		userEmail,
+		userPassword,
+		userRole,
+	); err != nil {
+		return err
+	}
+	if err := ensureDefaultAccount(
+		db,
+		userRepo,
+		userProfileRepo,
+		coachProfileRepo,
+		strings.TrimSpace(cfg.DefaultCoachEmail),
+		cfg.DefaultCoachPassword,
+		"coach",
+	); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ensureDefaultAccount(
+	db *pgxpool.Pool,
+	userRepo *repository.UserRepository,
+	userProfileRepo *repository.UserProfileRepository,
+	coachProfileRepo *repository.CoachProfileRepository,
+	email string,
+	password string,
+	role string,
+) error {
+	if email == "" || password == "" {
+		return nil
+	}
+	parsedEmail, err := mail.ParseAddress(email)
+	if err != nil {
+		return err
+	}
+	email = strings.ToLower(parsedEmail.Address)
+	if role != "user" && role != "coach" {
+		return fmt.Errorf("role must be user or coach")
+	}
+
+	ctx := context.Background()
+	existing, err := userRepo.GetByEmail(ctx, email)
+	if err == nil && existing != nil {
+		return nil
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	hashed, err := utils.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	txUserRepo := repository.NewUserRepository(tx)
+	txUserProfileRepo := repository.NewUserProfileRepository(tx)
+	txCoachProfileRepo := repository.NewCoachProfileRepository(tx)
+
+	user := &models.User{
+		Email:        email,
+		PasswordHash: hashed,
+		Role:         role,
+	}
+	if err := txUserRepo.CreateUser(ctx, user); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil
+		}
+		return err
+	}
+
+	if role == "user" {
+		if err := txUserProfileRepo.CreateEmpty(ctx, user.ID); err != nil {
+			return err
+		}
+	} else {
+		if err := txCoachProfileRepo.CreateEmpty(ctx, user.ID); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }

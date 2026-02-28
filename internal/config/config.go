@@ -10,14 +10,19 @@ import (
 )
 
 type Config struct {
-	Port               string
-	DBUrl              string
-	JWTSecret          string
-	SupabaseURL        string
-	SupabaseBucket     string
-	SupabaseServiceKey string
-	AppEnv             string
-	EnableDocs         bool
+	Port                 string
+	DBUrl                string
+	JWTSecret            string
+	SupabaseURL          string
+	SupabaseBucket       string
+	SupabaseServiceKey   string
+	AppEnv               string
+	EnableDocs           bool
+	DefaultUserEmail     string
+	DefaultUserPassword  string
+	DefaultUserRole      string
+	DefaultCoachEmail    string
+	DefaultCoachPassword string
 }
 
 func LoadConfig() (*Config, error) {
@@ -31,14 +36,19 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Port:               getEnv("PORT", "8080"),
-		DBUrl:              getEnv("DB_URL", ""),
-		JWTSecret:          jwtSecret,
-		SupabaseURL:        getEnv("SUPABASE_URL", ""),
-		SupabaseBucket:     getEnv("SUPABASE_BUCKET", ""),
-		SupabaseServiceKey: getEnv("SUPABASE_SERVICE_KEY", ""),
-		AppEnv:             normalizeEnv(getEnv("APP_ENV", "production")),
-		EnableDocs:         getEnvBool("ENABLE_API_DOCS", false),
+		Port:                 getEnv("PORT", "8080"),
+		DBUrl:                getEnv("DB_URL", ""),
+		JWTSecret:            jwtSecret,
+		SupabaseURL:          getEnv("SUPABASE_URL", ""),
+		SupabaseBucket:       getEnv("SUPABASE_BUCKET", ""),
+		SupabaseServiceKey:   getEnv("SUPABASE_SERVICE_KEY", ""),
+		AppEnv:               normalizeEnv(getEnv("APP_ENV", "production")),
+		EnableDocs:           getEnvBool("ENABLE_API_DOCS", false),
+		DefaultUserEmail:     getEnv("DEFAULT_USER_EMAIL", ""),
+		DefaultUserPassword:  getEnv("DEFAULT_USER_PASSWORD", ""),
+		DefaultUserRole:      getEnv("DEFAULT_USER_ROLE", ""),
+		DefaultCoachEmail:    getEnv("DEFAULT_COACH_EMAIL", ""),
+		DefaultCoachPassword: getEnv("DEFAULT_COACH_PASSWORD", ""),
 	}, nil
 }
 
