@@ -1,43 +1,136 @@
 # CoachAppBack
 
-Go backend for CoachApp with JWT auth, onboarding/profile APIs for users and coaches, and avatar upload via Supabase Storage.
+`CoachAppBack` is a Go backend for a coaching marketplace application. It exposes a REST API and WebSocket chat for account authentication, onboarding, profile management, coach discovery, session booking, workout program delivery, and real-time messaging.
 
-## Environment
+The service is built with Fiber, PostgreSQL, `pgx`, and `golang-migrate`. OpenAPI documentation is maintained in-repo and can be served locally in development mode.
 
-Required:
+## Highlights
+
+- JWT-based authentication for `user` and `coach` roles
+- Separate onboarding and profile flows for users and coaches
+- Coach discovery with filtering and personalized recommendations
+- Session booking, payment-state updates, and lifecycle management
+- Real-time chat over WebSocket plus conversation/message APIs
+- Workout program upload and secure download links
+- Optional Supabase Storage integration for avatars and program files
+- Embedded API docs viewers for Swagger UI, ReDoc, and Scalar
+
+## Tech Stack
+
+- Go `1.25`
+- [Fiber v2](https://github.com/gofiber/fiber)
+- PostgreSQL 16
+- `pgx/v5` connection pooling
+- `golang-migrate` for schema migrations
+- JWT for auth
+- Supabase Storage for file uploads when configured
+
+## Project Structure
+
+```text
+.
+├── cmd/
+│   ├── migrate/      # Database migration entrypoint
+│   └── server/       # API server entrypoint
+├── docs/
+│   └── openapi.yaml  # OpenAPI source of truth
+├── internal/
+│   ├── config/       # Environment loading and feature flags
+│   ├── database/     # PostgreSQL connection bootstrap
+│   ├── handlers/     # HTTP and WebSocket handlers
+│   ├── middleware/   # Auth middleware
+│   ├── models/       # Domain models
+│   ├── repository/   # PostgreSQL data access
+│   ├── routes/       # Route registration and docs serving
+│   ├── services/     # Business logic
+│   └── websocket/    # Chat hub and client lifecycle
+├── migrations/       # SQL schema migrations
+├── pkg/utils/        # JWT/password helpers
+└── docker-compose.yml
+```
+
+## Requirements
+
+- Go `1.25+`
+- Docker and Docker Compose, if you want the local PostgreSQL instance
+- A PostgreSQL database reachable via `DB_URL`
+- Supabase project credentials only if you want file upload/download features
+
+## Quick Start
+
+### 1. Start PostgreSQL
+
+```bash
+docker compose up db
+```
+
+This starts PostgreSQL 16 with:
+
+- database: `coachapp`
+- user: `user`
+- password: `password`
+- port: `5432`
+
+### 2. Create `.env`
 
 ```env
 PORT=8080
-DB_URL=postgres://postgres:postgres@localhost:5432/coachapp?sslmode=disable
-JWT_SECRET=change-me
-```
-
-Optional:
-
-```env
 APP_ENV=development
+DB_URL=postgres://user:password@localhost:5432/coachapp?sslmode=disable
+JWT_SECRET=change-me
 ENABLE_API_DOCS=true
 ```
 
-Optional for avatar upload:
+### 3. Apply migrations
 
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_BUCKET=avatars
-SUPABASE_SERVICE_KEY=your-service-role-key
+```bash
+go run ./cmd/migrate
 ```
 
-If Supabase storage variables are not set, avatar upload endpoints return `503 Storage service is not configured`.
-
-## Run
-
-Start the API:
+### 4. Start the API
 
 ```bash
 go run ./cmd/server
 ```
 
-Run migrations:
+The server listens on `http://localhost:8080`.
+
+## Environment Variables
+
+### Required
+
+| Variable | Description |
+| --- | --- |
+| `JWT_SECRET` | Secret used to sign and validate JWT tokens. |
+| `DB_URL` | PostgreSQL connection string. The server exits if it is missing. |
+
+### Optional
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | `8080` | HTTP port for the Fiber server. |
+| `APP_ENV` | `production` | Environment name. Docs are only served when this resolves to `development`. |
+| `ENABLE_API_DOCS` | `false` | Enables `/docs` routes, but only in development mode. |
+| `SUPABASE_URL` | empty | Supabase project URL for storage operations. |
+| `SUPABASE_BUCKET` | empty | Storage bucket used for avatars and program files. |
+| `SUPABASE_SERVICE_KEY` | empty | Service role key used for upload, delete, and signed URL generation. |
+| `DEFAULT_USER_EMAIL` | empty | Optional bootstrapped account email. |
+| `DEFAULT_USER_PASSWORD` | empty | Password for the bootstrapped default account. |
+| `DEFAULT_USER_ROLE` | `user` | Role for `DEFAULT_USER_EMAIL`; must be `user` or `coach`. |
+| `DEFAULT_COACH_EMAIL` | empty | Optional bootstrapped coach account email. |
+| `DEFAULT_COACH_PASSWORD` | empty | Password for the bootstrapped coach account. |
+
+## Storage Behavior
+
+Supabase Storage is optional, but file features depend on it.
+
+- If storage variables are not configured, avatar upload endpoints return `503`.
+- If storage variables are not configured, workout program create/download operations also return `503`.
+- Signed program download URLs expire after `3600` seconds.
+
+## Database Migrations
+
+Apply all pending migrations:
 
 ```bash
 go run ./cmd/migrate
@@ -49,37 +142,85 @@ Roll back migrations:
 go run ./cmd/migrate down
 ```
 
-## API Docs
+The migration command searches for the `migrations/` directory from the current working directory and executable location, so it works both in local development and compiled contexts.
 
-Docs are only exposed when `APP_ENV=development` and `ENABLE_API_DOCS=true`.
+## Development Commands
 
-OpenAPI web docs index: `GET /docs`
+Run the API:
 
-Swagger UI: `GET /docs/swagger`
+```bash
+go run ./cmd/server
+```
 
-ReDoc: `GET /docs/redoc`
+Run tests:
 
-Scalar: `GET /docs/scalar`
+```bash
+go test ./...
+```
 
-Raw OpenAPI spec: [docs/openapi.yaml](docs/openapi.yaml)
+Compile-check the project:
 
-Main profile/onboarding endpoints:
+```bash
+go build ./...
+```
 
+## API Documentation
+
+The OpenAPI source of truth lives at [`docs/openapi.yaml`](docs/openapi.yaml).
+
+Docs routes are only exposed when both of the following are true:
+
+- `APP_ENV=development`
+- `ENABLE_API_DOCS=true`
+
+Available local docs endpoints:
+
+- `GET /docs`
+- `GET /docs/openapi.yaml`
+- `GET /docs/swagger`
+- `GET /docs/redoc`
+- `GET /docs/scalar`
+
+## API Surface
+
+### Public endpoints
+
+- `GET /health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+
+### Authenticated endpoints
+
+- `GET /api/auth/me`
 - `POST /api/v1/users/onboarding`
 - `GET /api/v1/users/profile`
 - `PUT /api/v1/users/profile`
 - `POST /api/v1/users/profile/avatar`
 - `POST /api/v1/coaches/onboarding`
+- `GET /api/v1/coaches`
 - `GET /api/v1/coaches/profile`
 - `PUT /api/v1/coaches/profile`
 - `POST /api/v1/coaches/profile/avatar`
-- `GET /api/v1/coaches`
 - `GET /api/v1/coaches/recommended`
-- `GET /api/v1/coaches/:id`
+- `GET /api/v1/coaches/{id}`
+- `POST /api/v1/sessions/book`
+- `GET /api/v1/sessions`
+- `GET /api/v1/sessions/{id}`
+- `PUT /api/v1/sessions/{id}/status`
+- `POST /api/v1/sessions/{id}/pay`
+- `POST /api/v1/programs`
+- `GET /api/v1/programs`
+- `GET /api/v1/programs/{id}`
+- `GET /api/v1/programs/{id}/download`
 - `GET /api/v1/conversations`
 - `POST /api/v1/conversations`
-- `GET /api/v1/conversations/:id/messages`
-- `WS /api/v1/ws`
+- `GET /api/v1/conversations/{id}/messages`
+- `GET /api/v1/ws` for WebSocket upgrade
+
+### Role behavior
+
+- `user` accounts can register, complete user onboarding, discover coaches, book/pay for sessions, create conversations, and access their programs.
+- `coach` accounts can complete coach onboarding, manage coach profiles, update session status, upload workout programs, and participate in chat.
 
 ## Example Requests
 
@@ -95,7 +236,18 @@ curl -X POST http://localhost:8080/api/auth/register \
   }'
 ```
 
-User onboarding:
+Log in:
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123"
+  }'
+```
+
+Create user onboarding data:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/users/onboarding \
@@ -114,20 +266,6 @@ curl -X POST http://localhost:8080/api/v1/users/onboarding \
   }'
 ```
 
-Update a user profile:
-
-```bash
-curl -X PUT http://localhost:8080/api/v1/users/profile \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "weight_kg": 75,
-    "goals": ["weight_loss", "strength"],
-    "max_hourly_rate": 70,
-    "medical_conditions": "asthma"
-  }'
-```
-
 Discover coaches:
 
 ```bash
@@ -135,66 +273,47 @@ curl "http://localhost:8080/api/v1/coaches?specialization=weight_loss&min_rating
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-Get recommended coaches:
+Book a session:
 
 ```bash
-curl "http://localhost:8080/api/v1/coaches/recommended?limit=5" \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Get coach detail:
-
-```bash
-curl http://localhost:8080/api/v1/coaches/42 \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Upload a user avatar:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/users/profile/avatar \
-  -H "Authorization: Bearer <TOKEN>" \
-  -F "avatar=@/path/to/avatar.png"
-```
-
-Coach onboarding:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/coaches/onboarding \
+curl -X POST http://localhost:8080/api/v1/sessions/book \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
-    "full_name": "Taylor Coach",
-    "bio": "Strength and conditioning coach",
-    "specializations": ["strength", "fat_loss"],
-    "certifications": ["NASM", "ACE"],
-    "experience_years": 6,
-    "hourly_rate": 75
+    "coach_id": 42,
+    "scheduled_at": "2026-03-05T14:00:00Z",
+    "duration_minutes": 60,
+    "notes": "Focus on mobility and lower back pain."
   }'
 ```
 
-Update a coach profile:
+List sessions:
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/coaches/profile \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "bio": "Strength coach for busy professionals",
-    "certifications": ["NASM", "Precision Nutrition"],
-    "hourly_rate": 85
-  }'
+curl "http://localhost:8080/api/v1/sessions?timeframe=upcoming" \
+  -H "Authorization: Bearer <TOKEN>"
 ```
 
-Upload a coach avatar:
+Coach uploads a workout program:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/coaches/profile/avatar \
-  -H "Authorization: Bearer <TOKEN>" \
-  -F "avatar=@/path/to/avatar.jpg"
+curl -X POST http://localhost:8080/api/v1/programs \
+  -H "Authorization: Bearer <COACH_TOKEN>" \
+  -F "user_id=12" \
+  -F "session_id=44" \
+  -F "title=Week 1 Plan" \
+  -F "description=Post-session follow-up plan" \
+  -F "file=@/absolute/path/to/program.pdf"
 ```
 
-Create or get a conversation with a coach:
+Get a signed program download URL:
+
+```bash
+curl http://localhost:8080/api/v1/programs/10/download \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Create a conversation:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/conversations \
@@ -205,51 +324,38 @@ curl -X POST http://localhost:8080/api/v1/conversations \
   }'
 ```
 
-List conversations for the current user:
-
-```bash
-curl http://localhost:8080/api/v1/conversations \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Get paginated messages and mark incoming messages as read:
-
-```bash
-curl "http://localhost:8080/api/v1/conversations/7/messages?page=1&limit=20" \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Connect to chat over WebSocket with `wscat`:
+Open the chat WebSocket:
 
 ```bash
 wscat -c "ws://localhost:8080/api/v1/ws?token=<TOKEN>"
 ```
 
-Send a chat message over the websocket connection:
+Send a chat message:
 
 ```json
-{"type":"message","conversation_id":"7","content":"Hi coach, can we move tomorrow's session?"}
+{"type":"message","conversation_id":"7","content":"Can we move the session to Friday?"}
 ```
 
-Expected websocket event shape:
+## Testing
 
-```json
-{
-  "type": "message",
-  "conversation_id": "7",
-  "sender_id": "12",
-  "recipient_id": "42",
-  "content": "Hi coach, can we move tomorrow's session?",
-  "timestamp": "2026-03-01T09:00:00Z"
-}
+- Unit tests live beside the implementation in `*_test.go` files.
+- Integration coverage exists for session flows in `internal/services/session_service_integration_test.go`.
+- Database-backed integration tests require `DB_URL` to point to a migrated PostgreSQL instance and skip automatically when the database is unavailable.
+
+Run the full suite with:
+
+```bash
+go test ./...
 ```
 
-## Notes
+## Operational Notes
 
-- Avatar uploads accept `.jpg`, `.jpeg`, `.png`, and `.webp` files up to 5 MB.
-- Chat websocket auth accepts either `?token=<JWT>` or `Authorization: Bearer <JWT>` during upgrade.
-- `000002_rename_profile_columns` migrates existing databases from `injuries` to `medical_conditions` and from `credentials` to `certifications[]`.
-- The down migration converts coach certifications back to a comma-separated text field because the previous schema stored only a single text value.
-- `000003_add_discovery_support` adds persisted user budget preference, coach reviews, and coach availability slots used by discovery endpoints.
-- `000004_sync_coach_rating_from_reviews` backfills `coach_profiles.rating` from `coach_reviews` and keeps it synchronized with a database trigger.
-- `000006_add_chat_indexes` hardens chat foreign keys and adds indexes for conversation lookup and unread-message scans.
+- WebSocket auth accepts either `?token=<JWT>` or `Authorization: Bearer <JWT>` during the upgrade request.
+- `GET /health` returns `{"status":"ok"}` when the service is healthy.
+- Local API docs are intentionally development-only and are not exposed in production mode.
+
+## Notes for Contributors
+
+- Keep request/response contract changes in sync with [`docs/openapi.yaml`](docs/openapi.yaml).
+- Follow Conventional Commits for commit messages.
+- Prefer `gofmt`-formatted, table-driven tests for new behavior.
